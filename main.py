@@ -2,16 +2,12 @@ import string, timeit
 from math import log10, sqrt
 
 """
-This program compares the input data (a collection of archivized tweets) to a
-benchmark (a selection of 3 tweets) and sorts them by cosine similiarity. The
-the top 100 results are printed.
-
-By default, we choose tweets with adult content and expect that the top 100
-results will have a high probability of adult content as well. The benchmark
-tweets can be changed to do the same experiment with other genres of tweets.
+This program compares tweets from a collection to a benchmark (a subset of the
+collection, in this case: three tweets with adult content) and sorts them by
+cosine similiarity. The top tanking 100 tweets are printed.
 
 The default 3 benchmark tweets are displayed in the dictionary below
-(tweets are normalized and URL's have been moved):
+(tweets are normalized and URL's have been moved).
 """
 
 global benchmark, fp_tweets, fp_stopwords, stopwords, collection_size
@@ -20,22 +16,26 @@ global terms, terms_tf, terms_df, terms_idf, terms_tf_idf, matched_tweets, top
 benchmark = {
     '766419051145035777': 'First anal sex in the kitchen #amateur #anal #blond #blowjob #brunette #cumshots',
     '776913092257148928': '#women sleeping sex porn actor nude',
-    '779008212288823296': '#dark pussy hair teens lesbian movies' }
+    '779008212288823296': '#dark pussy hair teens lesbian movies'
+    }
 collection_size = 0 # total number of tweets
-stopwords = []
+stopwords = [] # frequent words to be ignored
 terms = [] # dict with terms as keys and idf as values
 terms_tf = []
 terms_df = []
 terms_idf = []
 terms_tf_idf = []
 matched_tweets = {} # final result, format: {'tweet' : 'cos_sim score'}
-top = [] # will contain top 100 tweets by decreasing cos_sim score
+top = [] # will contain top 100 results from matched tweets
 fp_tweets = 'data/tweets'
 fp_stopwords = 'data/stopwords'
 
 def run():
     """
-    Main routine.
+    Main routine. Will call all responsable functions to calculate tf-idf
+    scores and cosine similarity for the benchmark terms and the tweets.
+
+    Benchmark terms, top 100 results and runtime will be printed.
     """
     # start counting runtime
     start = timeit.default_timer()
@@ -80,7 +80,22 @@ def run():
         print('({})\t{}'.format(tweet[1], tweet[0]))
 
 
+def merge_benchmark():
+    """
+    Will merge benchmark tweets and extract unique terms.
+    """
+    global terms, benchmark
+    for tweet in benchmark:
+        tokens = tokenize_tweet(benchmark[tweet]) # returns list of tokens
+        for word in tokens:
+            if word not in terms:
+                terms.append(word)
+
+
 def get_tf_idf_scores():
+    """
+    Calculates tf-idf score for tweets in collection.
+    """
     global terms, terms_idf, matched_tweets
     tweets = read_tweets()
     for tweet in tweets:
@@ -103,6 +118,34 @@ def get_tf_idf_scores():
                 if at_least_one_match:
                     cos_sim = get_cos_sim(tf_idf_list)
                     matched_tweets[tweet_text] = cos_sim
+
+
+def get_idf_scores():
+    """
+    Computes document frequency for terms (i.e. number of tweets containing the
+    term). Converts them to idf scores.
+    Also computes the collection size. Both variables are globally changed.
+    """
+    global terms, terms_idf, terms_df, collection_size
+    tweets = read_tweets()
+
+    # First get document frequency (df)
+    terms_df = [0 for each_term in terms]
+    collection_size = 0
+    for tweet in tweets:
+        if len(tweet.split('\t')) == 5:
+            tweet_tokens = tokenize_tweet(tweet.split('\t')[4])
+            tweet_id = tweet.split('\t')[1]
+            if tweet_id not in benchmark.keys():
+                collection_size += 1
+                for term in terms:
+                    if term in tweet_tokens:
+                        terms_df[terms.index(term)] += 1
+    # Get idf from df
+    for df in terms_df:
+        idf = 1 + log10( collection_size / df ) if df != 0 else 0
+        terms_idf.append(idf)
+
 
 
 def get_cos_sim(tweet_vectors):
@@ -128,41 +171,6 @@ def get_eucl_len_prod(tweet_vectors):
         eucl_len0 += pow(a, 2)
         eucl_len1 += pow(b, 2)
     return sqrt(eucl_len0) * sqrt(eucl_len1)
-
-
-def get_idf_scores():
-    """
-    Computes document frequency for terms (i.e. number of tweets containing the
-    term). Also sets the collection size. Both variables are globally changed.
-    """
-    global terms, terms_idf, terms_df, collection_size
-    tweets = read_tweets()
-
-    # First get document frequency (df)
-    terms_df = [0 for each_term in terms]
-    collection_size = 0
-    for tweet in tweets:
-        if len(tweet.split('\t')) == 5:
-            tweet_tokens = tokenize_tweet(tweet.split('\t')[4])
-            tweet_id = tweet.split('\t')[1]
-            if tweet_id not in benchmark.keys():
-                collection_size += 1
-                for term in terms:
-                    if term in tweet_tokens:
-                        terms_df[terms.index(term)] += 1
-    # Get idf from df
-    for df in terms_df:
-        idf = 1 + log10( collection_size / df ) if df != 0 else 0
-        terms_idf.append(idf)
-
-
-def merge_benchmark():
-    global terms, benchmark
-    for tweet in benchmark:
-        tokens = tokenize_tweet(benchmark[tweet]) # returns list of tokens
-        for word in tokens:
-            if word not in terms:
-                terms.append(word)
 
 
 def import_stopwords():
