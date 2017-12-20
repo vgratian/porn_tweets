@@ -99,10 +99,11 @@ def get_tf_idf_scores():
     global terms, terms_idf, matched_tweets
     tweets = read_tweets()
     for tweet in tweets:
-        if len(tweet.split('\t')) == 5: # Skip tweets in wrong format or missing data
-            tweet_text = tweet.split('\t')[4]
+        tweet = tweet.split('\t')
+        if len(tweet) == 5: # Skip tweets in wrong format or missing data
+            tweet_text = tweet[4]
             tweet_tokens = tokenize_tweet(tweet_text)
-            tweet_id = tweet.split('\t')[1]
+            tweet_id = tweet[1]
             if tweet_tokens and tweet_id not in benchmark.keys(): # Skip tweets with no tokens
                 tf_idf_list = []
                 at_least_one_match = False
@@ -133,9 +134,10 @@ def get_idf_scores():
     terms_df = [0 for each_term in terms]
     collection_size = 0
     for tweet in tweets:
-        if len(tweet.split('\t')) == 5:
-            tweet_tokens = tokenize_tweet(tweet.split('\t')[4])
-            tweet_id = tweet.split('\t')[1]
+        tweet = tweet.split('\t')
+        if len(tweet) == 5:
+            tweet_tokens = tokenize_tweet(tweet[4])
+            tweet_id = tweet[1]
             if tweet_id not in benchmark.keys():
                 collection_size += 1
                 for term in terms:
@@ -145,7 +147,6 @@ def get_idf_scores():
     for df in terms_df:
         idf = 1 + log10( collection_size / df ) if df != 0 else 0
         terms_idf.append(idf)
-
 
 
 def get_cos_sim(tweet_vectors):

@@ -14,7 +14,7 @@ We noticed that those were not only tweets which contained relatively high numbe
 
 In short, tweets which contained a larger number of matching words and especially words that were less frequent in the collection, had a higher cosine similarity to the benchmark.
 
-The ranking of 1M tweets required 130.22 seconds from a XPS Dell laptop with i5 Intel processor and 8GB memory.
+The ranking of 1M tweets required 124.15 seconds on an XPS Dell laptop with i5 Intel processor and 8GB memory.
 
 ## tweet data
 
@@ -24,8 +24,8 @@ In order to run the program, a 'tweets' collection file must be in the folder `d
 DATESTAMP TWEET_ID  USER_ACCOUNT  USER_NAME TWEET_TEXT
 ```
 
-Only the `tweet_id` and `tweet_text` are required for this program.
+Only `tweet_id` and `tweet_text` are used in this program.
 
 ## stopwords
-The list of 119 stop words copied and adapted from [Stanford Core NLP](https://github.com/stanfordnlp/CoreNLP/blob/master/data/edu/stanford/nlp/patterns/surface/stopwords.txt)
+The list of 119 stop words were copied and adapted from [Stanford Core NLP](https://github.com/stanfordnlp/CoreNLP/blob/master/data/edu/stanford/nlp/patterns/surface/stopwords.txt)
 which is under the GNU General Public license.
