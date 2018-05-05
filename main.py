@@ -20,12 +20,12 @@ benchmark = {
     }
 collection_size = 0 # total number of tweets
 stopwords = [] # frequent words to be ignored
-terms = [] # dict with terms as keys and idf as values
-terms_tf = []
-terms_df = []
-terms_idf = []
-terms_tf_idf = []
-matched_tweets = {} # final result, format: {'tweet' : 'cos_sim score'}
+terms = {} # dict with terms as keys and count as values
+terms_tf = {}
+terms_df = {}
+terms_idf = {}
+terms_tf_idf = {}
+matched_tweets = {} # final result, format: {'tweet' : cos_sim score}
 top = [] # will contain top 100 results from matched tweets
 fp_tweets = 'data/tweets'
 fp_stopwords = 'data/stopwords'
@@ -40,30 +40,28 @@ def run():
     # start counting runtime
     start = timeit.default_timer()
 
-    # populate global variables
+    # populate global variable stopwords
     import_stopwords()
+
+    # extract terms and calulate term-frequencies in benchmark
     merge_benchmark()
-
-    # compute tf scores for terms against benchmark
     global terms_tf
-    terms_tf = [1/len(terms) for term in terms]
+    terms_tf = {term:terms[term]/len(terms) for term in terms.keys()}
 
-    # compute idf scores for terms
+    # calculate tf-idf scores for benchmark
     get_idf_scores()
+    global terms_tf_idf
+    terms_tf_idf = {term:terms_tf[term]*terms_idf[term] for term in terms}
 
     # print terms and df-s
     print('{} terms in benchmark. Printing terms with document frequency (df):'
         .format(len(terms)))
-    for term, df in zip(terms, terms_df):
-        print('({}) {}'.format(df, term))
+    for term in terms.keys():
+        print('({}) {}'.format(terms_df[term], term))
     print('Ranking {} tweets by cosine similarity.'.format(collection_size))
 
-    # compute tf-idf scores for terms
-    global terms_tf_idf
-    terms_tf_idf = [tf*idf for tf, idf in zip(terms_tf, terms_idf)]
-
-    # now compute tf-idf and cosine similiarity for tweets
-    get_tf_idf_scores()
+    # calculate tf-idfs for tweets and find cosine similiarity to benchmark
+    find_tweets_sim()
 
     # sort matched tweets and slice top 100 results
     top = sorted(matched_tweets.items(), key=lambda x:x[1], reverse=True)[:100]
@@ -88,13 +86,15 @@ def merge_benchmark():
     for tweet in benchmark:
         tokens = tokenize_tweet(benchmark[tweet]) # returns list of tokens
         for word in tokens:
-            if word not in terms:
-                terms.append(word)
+            if word not in terms.keys():
+                terms[word] = 1
+            else:
+                terms[word] += 1
 
 
-def get_tf_idf_scores():
+def find_tweets_sim():
     """
-    Calculates tf-idf score for tweets in collection.
+    Calculates tf-idf score for tweets in collection and compare to benchmark.
     """
     global terms, terms_idf, matched_tweets
     tweets = read_tweets()
@@ -105,17 +105,17 @@ def get_tf_idf_scores():
             tweet_tokens = tokenize_tweet(tweet_text)
             tweet_id = tweet[1]
             if tweet_tokens and tweet_id not in benchmark.keys(): # Skip tweets with no tokens
-                tf_idf_list = []
+                tf_idf_list = {}
                 at_least_one_match = False
-                for term in terms:
+                for term in terms.keys():
                     tf = 0
                     for token in tweet_tokens:
                         if term == token:
                             tf += 1
                             at_least_one_match = True
                     tf = tf/len(tweet_tokens)
-                    tf_idf = tf * terms_idf[terms.index(term)]
-                    tf_idf_list.append(tf_idf)
+                    tf_idf = tf * terms_idf[term]
+                    tf_idf_list[term] = tf_idf
                 if at_least_one_match:
                     cos_sim = get_cos_sim(tf_idf_list)
                     matched_tweets[tweet_text] = cos_sim
@@ -131,7 +131,7 @@ def get_idf_scores():
     tweets = read_tweets()
 
     # First get document frequency (df)
-    terms_df = [0 for each_term in terms]
+    terms_df = {term:0 for term in terms}
     collection_size = 0
     for tweet in tweets:
         tweet = tweet.split('\t')
@@ -142,11 +142,12 @@ def get_idf_scores():
                 collection_size += 1
                 for term in terms:
                     if term in tweet_tokens:
-                        terms_df[terms.index(term)] += 1
+                        terms_df[term] += 1
     # Get idf from df
-    for df in terms_df:
+    for term in terms_df:
+        df = terms_df[term]
         idf = 1 + log10( collection_size / df ) if df != 0 else 0
-        terms_idf.append(idf)
+        terms_idf[term] = idf
 
 
 def get_cos_sim(tweet_vectors):
@@ -159,8 +160,8 @@ def get_cos_sim(tweet_vectors):
 def get_dot_prod(tweet_vectors):
     global terms_tf_idf
     dot_prod = 0
-    for a, b in zip(terms_tf_idf, tweet_vectors):
-        dot_prod += a * b
+    for term in tweet_vectors.keys():
+        dot_prod += tweet_vectors[term] * terms_tf_idf[term]
     return dot_prod
 
 
@@ -168,9 +169,9 @@ def get_eucl_len_prod(tweet_vectors):
     global terms_tf_idf
     eucl_len0 = 0
     eucl_len1 = 0
-    for a, b in zip(terms_tf_idf, tweet_vectors):
-        eucl_len0 += pow(a, 2)
-        eucl_len1 += pow(b, 2)
+    for term in tweet_vectors.keys():
+        eucl_len0 += pow(tweet_vectors[term], 2)
+        eucl_len1 += pow(terms_tf_idf[term], 2)
     return sqrt(eucl_len0) * sqrt(eucl_len1)
 
 
